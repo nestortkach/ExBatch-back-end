@@ -1,0 +1,51 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+env/
+.venv/
+ENV/
+.env
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Uploads and media 
+/uploads/
+**/stream_*/
+
+# Credentials and sensitive data
+client_secret.json
+*.key
+*.pem
+*.crt
+
+# IDE files
+.idea/
+../.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Custom project files
+*.pyc
+.coverage
+htmlcov/
+.pytest_cache/
