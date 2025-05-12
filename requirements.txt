@@ -9,3 +9,5 @@ pytest-mock==3.12.0
 httpx
 python-multipart==0.0.20
 xlcalculator
+python-dotenv
+psycopg2-binary

@@ -1,10 +1,24 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text
+import os
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy import ForeignKey
-from .settings import DB_FILE
+from .settings import load_dotenv, ENV_PATH
+
+load_dotenv(dotenv_path=ENV_PATH)
 
 Base = declarative_base()
+
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+
+DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+engine = create_engine(DATABASE_URL)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Template(Base):
@@ -42,20 +56,9 @@ class OutputMapping(Base):
     template = relationship("Template", back_populates="output_mappings")
 
 
-
-
-engine = create_engine(f"sqlite:///{DB_FILE}", connect_args={"check_same_thread": False})
-Base.metadata.create_all(bind=engine)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-###
