@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from app.models import Template, InputMapping, OutputMapping, get_db
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
-from typing import Optional
 import csv
 
 app = FastAPI()
@@ -141,33 +140,22 @@ def get_template(db: Session = Depends(get_db)):
 async def process_excel(
         template_id: int,
         excel_file: UploadFile = File(...),
-        csv_file: Optional[UploadFile] = File(None),
+        csv_file: UploadFile = File(...),
         db: Session = Depends(get_db)
 ):
     db_template = db.query(Template).filter(Template.id == template_id).first()
-    
+
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
 
     template_pydantic = template_to_pydantic(db_template)
 
-
-    all_forced = all(inp.source == "forced" for inp in template_pydantic.inputs)
-
-
-    if not all_forced and not csv_file:
-        raise HTTPException(status_code=400, detail="CSV file is required for this template")
-
     excel_data = await excel_file.read()
+    csv_data = await csv_file.read()
 
-    csv_data = []
-    if not all_forced:
-        raw_csv = await csv_file.read()
-        csv_data = list(csv.DictReader(raw_csv.decode('utf-8').splitlines()))
-
-
+    csv_data = list(csv.DictReader(csv_data.decode('utf-8').splitlines()))
     result_files = process_excel_file(excel_data, template_pydantic, csv_data)
-    return Response(content=result_files, media_type="text/csv")
 
+    return Response(content=result_files, media_type="text/csv")
 
 
