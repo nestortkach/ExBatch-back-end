@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from app.models import Template, InputMapping, OutputMapping, get_db
+from app.models import Template, InputMapping, OutputMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
+
 import csv
 
 app = FastAPI()
@@ -13,6 +14,8 @@ origins = [
     "https://localhost:3000",
     "http://localhost:3000",
 ]
+
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
