@@ -6,27 +6,28 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: exbatch-backend
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://test_db_user:1234AAA@db:5432/Ex_batch
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
-    working_dir: /app
-    env_file:
-      - .env
-    depends_on:
-      - db
+      - ./storage:/app/storage
     restart: unless-stopped
+    
 
   db:
     image: postgres:15
-    container_name: exbatch-db
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: test_db_user
+      POSTGRES_PASSWORD: 1234AAA
+      POSTGRES_DB: Ex_batch
     ports:
-      - "${POSTGRES_PORT}:5432"
-
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      
 volumes:
-  postgres_data:
+  pg_data:
