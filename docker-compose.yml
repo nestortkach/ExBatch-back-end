@@ -5,15 +5,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: exbatch-backend
+    container_name: test-db-backend
     depends_on:
       - db
-    environment:
-      DATABASE_URL: postgres://test_db_user:1234AAA@db:5432/Ex_batch
+   
     ports:
       - "8000:8000"
-    volumes:
-      - ./storage:/app/storage
     restart: unless-stopped
     
 
