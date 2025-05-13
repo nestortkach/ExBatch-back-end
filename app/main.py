@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.models import Template, InputMapping, OutputMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
-
+from typing import Optional 
 import csv
 
 app = FastAPI()
@@ -143,7 +143,7 @@ def get_template(db: Session = Depends(get_db)):
 async def process_excel(
         template_id: int,
         excel_file: UploadFile = File(...),
-        csv_file: UploadFile = File(...),
+        csv_file: Optional[UploadFile] = File(None),
         db: Session = Depends(get_db)
 ):
     db_template = db.query(Template).filter(Template.id == template_id).first()
@@ -154,9 +154,19 @@ async def process_excel(
     template_pydantic = template_to_pydantic(db_template)
 
     excel_data = await excel_file.read()
-    csv_data = await csv_file.read()
-
-    csv_data = list(csv.DictReader(csv_data.decode('utf-8').splitlines()))
+    
+    if csv_file:
+        csv_bytes  = await csv_file.read()
+        csv_data = list(csv.DictReader(csv_bytes.decode('utf-8').splitlines()))
+    else:
+        if all(im.forced_value is not None for im in template_pydantic.input_mappings):
+            csv_data = [{}]
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="CSV file is required unless all input are forced in the template."
+            )
+    
     result_files = process_excel_file(excel_data, template_pydantic, csv_data)
 
     return Response(content=result_files, media_type="text/csv")
