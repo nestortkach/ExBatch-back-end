@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from app.models import Template, InputMapping, OutputMapping, get_db, Base, engine
+from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
 from typing import Optional 
@@ -56,6 +56,13 @@ def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
         )
         db.add(db_output_mapping)
 
+    for identity_mapping in template.identity_mappings:
+        db_identity_mapping= IdentityMapping(
+            name=identity_mapping.name,
+            template_id=db_template.id
+        )
+        db.add(db_identity_mapping)
+        
     db.commit()
     return db_template
 
@@ -82,15 +89,19 @@ def update_template(
 
     db.query(InputMapping).filter(InputMapping.template_id == template_id).delete()
     db.query(OutputMapping).filter(OutputMapping.template_id == template_id).delete()
+    db.query(IdentityMapping).filter(IdentityMapping.template_id == template_id).delete()
 
     for im in payload.input_mappings:
         db.add(InputMapping(**im.dict(by_alias=False), template_id=template_id))
     for om in payload.output_mappings:
         db.add(OutputMapping(**om.dict(by_alias=False), template_id=template_id))
+    for idm in payload.identity_mappings:
+        db.add(IdentityMapping(**idm.dict(by_alias=False), template_id=template_id))
 
     db.commit()
     db.refresh(db_tpl)
     return db_tpl
+
 
 
 @app.patch("/templates/{template_id}", response_model=TemplateResponse)
@@ -108,7 +119,6 @@ def patch_template(
     if payload.description is not None:
         db_tpl.description = payload.description
 
-
     if payload.input_mappings is not None:
         db.query(InputMapping).filter(InputMapping.template_id == template_id).delete()
         for im in payload.input_mappings:
@@ -119,9 +129,15 @@ def patch_template(
         for om in payload.output_mappings:
             db.add(OutputMapping(**om.dict(by_alias=False), template_id=template_id))
 
+    if payload.identity_mappings is not None:
+        db.query(IdentityMapping).filter(IdentityMapping.template_id == template_id).delete()
+        for idm in payload.identity_mappings:
+            db.add(IdentityMapping(**idm.dict(by_alias=False), template_id=template_id))
+
     db.commit()
     db.refresh(db_tpl)
     return db_tpl
+
 
 
 @app.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)

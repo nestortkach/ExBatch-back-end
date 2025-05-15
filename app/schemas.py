@@ -15,12 +15,18 @@ class OutputMappingBase(BaseModel):
     cell: str
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    
+class IdentityMappingBase(BaseModel):
+    name: str
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
     input_mappings: List[InputMappingBase]
     output_mappings: List[OutputMappingBase]
+    identity_mappings: List[IdentityMappingBase]
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
@@ -30,6 +36,7 @@ class TemplateResponse(BaseModel):
     description: Optional[str] = None
     input_mappings: List[InputMappingBase]
     output_mappings: List[OutputMappingBase]
+    identity_mappings: List[IdentityMappingBase]
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra="forbid")
 
@@ -38,16 +45,25 @@ def template_to_pydantic(db_template: Template) -> TemplateCreate:
     return TemplateCreate(
         name=db_template.name,
         description=db_template.description,
-        input_mappings=[{
-            "name": input.name,
-            "source": input.source,
-            "cell": input.cell,
-            "forced_value": input.forced_value
-        } for input in db_template.input_mappings],
-        output_mappings=[{
-            "field": output.field,
-            "cell": output.cell
-        } for output in db_template.output_mappings]
+        input_mappings=[
+            InputMappingBase(
+                name=im.name,
+                source=im.source,
+                cell=im.cell,
+                forced_value=im.forced_value
+            ) for im in db_template.input_mappings
+        ],
+        output_mappings=[
+            OutputMappingBase(
+                field=om.field,
+                cell=om.cell
+            ) for om in db_template.output_mappings
+        ],
+        identity_mappings=[
+            IdentityMappingBase(
+                name=idm.name
+            ) for idm in db_template.identity_mappings
+        ]
     )
 
 
@@ -56,6 +72,7 @@ class TemplateUpdate(BaseModel):
     description: Optional[str] = None
     input_mappings: List[InputMappingBase] = Field(alias="inputMappings")
     output_mappings: List[OutputMappingBase] = Field(alias="outputMappings")
+    identity_mappings: List[IdentityMappingBase] = Field(alias="identityMappings")
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
@@ -68,6 +85,10 @@ class TemplatePatch(BaseModel):
     output_mappings: Optional[List[OutputMappingBase]] = Field(
         default=None, alias="outputMappings"
     )
+    identity_mappings: Optional[List[IdentityMappingBase]] = Field(
+        default=None, alias="identityMappings"
+    )
+
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 

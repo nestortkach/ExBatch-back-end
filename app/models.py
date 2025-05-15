@@ -14,7 +14,9 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+DATABASE_URL = "postgresql://test_db_user:1234AAA@localhost:5432/Ex_batch"
+#DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 engine = create_engine(DATABASE_URL)
 
@@ -30,6 +32,7 @@ class Template(Base):
 
     input_mappings = relationship("InputMapping", back_populates="template")
     output_mappings = relationship("OutputMapping", back_populates="template")
+    identity_mappings = relationship("IdentityMapping", back_populates="template")
 
 
 class InputMapping(Base):
@@ -54,6 +57,15 @@ class OutputMapping(Base):
     template_id = Column(Integer, ForeignKey('templates.id'))
 
     template = relationship("Template", back_populates="output_mappings")
+    
+class IdentityMapping(Base):
+    __tablename__ = 'identity_mappings'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    template_id = Column(Integer, ForeignKey('templates.id'))
+
+    template = relationship("Template", back_populates="identity_mappings")
 
 
 def get_db():
