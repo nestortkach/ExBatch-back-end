@@ -1,11 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.models import Template, InputMapping, OutputMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
 from typing import Optional 
+from io import StringIO
 import csv
+
 
 app = FastAPI()
 
@@ -167,8 +170,14 @@ async def process_excel(
                 detail="CSV file is required unless all input are forced in the template."
             )
     
-    result_files = process_excel_file(excel_data, template_pydantic, csv_data)
+    csv_content = process_excel_file(excel_data, template_pydantic, csv_data)
 
-    return Response(content=result_files, media_type="text/csv")
+    reader = csv.DictReader(StringIO(csv_content))
+    json_result = list(reader)
+    
+    return JSONResponse(content={
+        "json": json_result,
+        "csv": csv_content
+    })
 
 
