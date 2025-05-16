@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
@@ -153,12 +153,19 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+
 @app.get("/templates_list")
 def get_template(db: Session = Depends(get_db)):
-    db_template = db.query(Template).all()
+    db_template = db.query(Template).options(
+        selectinload(Template.input_mappings),
+        selectinload(Template.output_mappings),
+        selectinload(Template.identity_mappings)
+        ).all()
     if db_template is None:
         raise HTTPException(status_code=404, detail="Template not found")
     return db_template
+
+
 
 @app.get("/download/json/{filename}")
 async def download_json(filename: str):
