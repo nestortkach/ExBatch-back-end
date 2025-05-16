@@ -208,7 +208,7 @@ async def process_excel(
     
     if csv_file:
         csv_bytes  = await csv_file.read()
-        csv_data = list(csv.DictReader(csv_bytes.decode('utf-8').splitlines()))
+        csv_data = list(csv.DictReader(csv_bytes.decode('utf-8-sig').splitlines()))
     else:
         if all(im.forced_value is not None for im in template_pydantic.input_mappings):
             csv_data = [{}]

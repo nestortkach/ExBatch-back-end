@@ -40,25 +40,21 @@ def process_excel_file(
     for csv_row in csv_rows:
         for sh, col, r, key, forced in in_maps:
             val = forced if forced is not None else csv_row.get(key, "")
+            print(val)
             ev.set_cell_value(f"{sh}!{col}{r}", val)
 
-    
-        # out_row = {}
-        # for sh, col, r, field in out_maps:
-        #     value = ev.evaluate(f"{sh}!{col}{r}") or 0
-        #     print(value)
-        #     print(type(value))
-        #     if hasattr(value, 'value'):
-        #         value = value.value
-        #     if isinstance(value, float):
-        #         value = f"{round(value, 6)}"
-
-        #     out_row[field] = value or "0.00"
-
-        out_row = {
-            field: ev.evaluate(f"{sh}!{col}{r}") or 0
-            for sh, col, r, field in out_maps
-        }
+        out_row = {}
+        for sh, col, r, field in out_maps:
+            formula_cell = f"{sh}!{col}{r}"
+            result = ev.evaluate(formula_cell)
+            print(f"Evaluating {formula_cell} -> {result}")
+            out_row[field] = result or 0
+        
+        print("Input mappings:", in_maps)
+        print("Output mappings:", out_maps)
+        print("ID mappings:", id_maps)
+        for row in csv_rows:
+            print("CSV row:", row)
 
 
 
