@@ -15,7 +15,7 @@ def process_excel_file(
     file_bytes: bytes,
     template: TemplateCreate,
     csv_rows
-) -> str:  # returning CSV string, not Path
+) -> str:
 
     in_maps, out_maps, id_maps = [], [], []
 
@@ -30,9 +30,6 @@ def process_excel_file(
         out_maps.append((sh, col, row, om.field))
 
     for idm in template.identity_mappings:
-        # since your identity mapping has only "name" but no cell, 
-        # you want to get it from CSV by that name (idm.name)
-        # So just store the identity field names to extract from csv_row later
         id_maps.append(idm.name)
 
     mc = ModelCompiler()
@@ -41,25 +38,23 @@ def process_excel_file(
     results = []
 
     for csv_row in csv_rows:
-        # Set inputs in the Excel evaluator
+        
         for sh, col, r, key, forced in in_maps:
             val = forced if forced is not None else csv_row.get(key, "")
             ev.set_cell_value(f"{sh}!{col}{r}", val)
 
-        # Evaluate outputs
-        out_row = {
-            field: ev.evaluate(f"{sh}!{col}{r}") or 0
-            for sh, col, r, field in out_maps
-        }
+        out_row = {}
+        for sh, col, r, field in out_maps:
+            value = ev.evaluate(f"{sh}!{col}{r}") or 0
+            if isinstance(value, float):
+                value = round(value, 6)
+            out_row[field] = value
 
-        # Extract identity fields from the CSV row
         identity_data = {key: csv_row.get(key, "") for key in id_maps}
 
-        # Combine identity data with output data, identity first
         combined_row = {**identity_data, **out_row}
         results.append(combined_row)
 
-    # Prepare CSV header: identity fields first, then output fields
     header = id_maps + [m.field for m in template.output_mappings]
 
     sio = io.StringIO()
