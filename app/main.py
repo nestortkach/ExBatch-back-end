@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
+from app.settings import STORAGE_DIR
+import os
+from json import dump as json_dump
 from typing import Optional 
 from io import StringIO
 import csv
@@ -157,6 +160,28 @@ def get_template(db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Template not found")
     return db_template
 
+@app.get("/download/json/{filename}")
+async def download_json(filename: str):
+    file_path = os.path.join(STORAGE_DIR, f"{filename}.json")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="JSON file not found")
+    return FileResponse(
+        path=file_path,
+        media_type="application/json",
+        filename=f"{filename}.json"
+    )
+
+
+@app.get("/download/csv/{filename}")
+async def download_csv(filename: str):
+    file_path = os.path.join(STORAGE_DIR, f"{filename}.csv")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="CSV file not found")
+    return FileResponse(
+        path=file_path,
+        media_type="text/csv",
+        filename=f"{filename}.csv"
+    )
 
 @app.post("/process_excel/")
 async def process_excel(
@@ -191,9 +216,26 @@ async def process_excel(
     reader = csv.DictReader(StringIO(csv_content))
     json_result = list(reader)
     
+    
+    base_filename = f"{template_id}_result"
+    
+    csv_path = os.path.join(STORAGE_DIR, f"{base_filename}.csv")
+    json_path = os.path.join(STORAGE_DIR, f"{base_filename}.json")
+    
+    
+    with open(csv_path, "w", newline='', encoding="utf-8") as f:
+        f.write(csv_content)
+
+    with open(json_path, "w", encoding="utf-8") as f:
+        json_dump(json_result, f, ensure_ascii=False)
+    
     return JSONResponse(content={
         "json": json_result,
-        "csv": csv_content
+        "csv": csv_content,
+        "dowload_links":{
+            "json": f"/download/json/{base_filename}",
+            "csv": f"/download/csv/{base_filename}"
+        }
     })
 
 
