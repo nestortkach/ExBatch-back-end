@@ -194,7 +194,7 @@ async def download_csv(filename: str):
 async def process_excel(
         template_id: int,
         excel_file: UploadFile = File(...),
-        csv_file: Optional[UploadFile] = File(None),
+        csv_file: UploadFile = File(None),
         db: Session = Depends(get_db)
 ):
     db_template = db.query(Template).filter(Template.id == template_id).first()
