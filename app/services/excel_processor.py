@@ -38,17 +38,29 @@ def process_excel_file(
     results = []
 
     for csv_row in csv_rows:
-        
         for sh, col, r, key, forced in in_maps:
             val = forced if forced is not None else csv_row.get(key, "")
             ev.set_cell_value(f"{sh}!{col}{r}", val)
 
-        out_row = {}
-        for sh, col, r, field in out_maps:
-            value = ev.evaluate(f"{sh}!{col}{r}") or 0
-            if isinstance(value, float):
-                value = round(value, 6)
-            out_row[field] = value
+    
+        # out_row = {}
+        # for sh, col, r, field in out_maps:
+        #     value = ev.evaluate(f"{sh}!{col}{r}") or 0
+        #     print(value)
+        #     print(type(value))
+        #     if hasattr(value, 'value'):
+        #         value = value.value
+        #     if isinstance(value, float):
+        #         value = f"{round(value, 6)}"
+
+        #     out_row[field] = value or "0.00"
+
+        out_row = {
+            field: ev.evaluate(f"{sh}!{col}{r}") or 0
+            for sh, col, r, field in out_maps
+        }
+
+
 
         identity_data = {key: csv_row.get(key, "") for key in id_maps}
 
