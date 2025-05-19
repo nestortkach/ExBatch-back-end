@@ -18,7 +18,7 @@ class OutputMappingBase(BaseModel):
     
 class IdentityMappingBase(BaseModel):
     name: str
-
+    
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 class TemplateCreate(BaseModel):
