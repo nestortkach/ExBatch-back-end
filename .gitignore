@@ -19,6 +19,7 @@ build/
 # Uploads and media 
 /uploads/
 **/stream_*/
+storage/
 
 # Credentials and sensitive data
 client_secret.json
