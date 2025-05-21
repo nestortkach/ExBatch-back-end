@@ -50,13 +50,11 @@ def process_excel_file(
             print(f"Evaluating {formula_cell} -> {result}")
             out_row[field] = result or 0
         
-        print("Input mappings:", in_maps)
-        print("Output mappings:", out_maps)
-        print("ID mappings:", id_maps)
-        for row in csv_rows:
-            print("CSV row:", row)
-
-
+        # print("Input mappings:", in_maps)
+        # print("Output mappings:", out_maps)
+        # print("ID mappings:", id_maps)
+        # for row in csv_rows:
+        #     print("CSV row:", row)
 
         identity_data = {key: csv_row.get(key, "") for key in id_maps}
 
