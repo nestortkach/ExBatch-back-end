@@ -1,10 +1,11 @@
 import openpyxl
+import tempfile
 import csv, re, uuid, io
 from pathlib import Path
 from io import BytesIO
 from app.settings import STORAGE_DIR
 from app.schemas import TemplateCreate
-from xlcalculator import ModelCompiler, Evaluator
+import xlwings as xw
 
 _CELL_RGX = re.compile(r"([A-Z]+)(\d+)", re.I)
 def _split(cell: str) -> tuple[str, int]:
@@ -32,36 +33,39 @@ def process_excel_file(
     for idm in template.identity_mappings:
         id_maps.append(idm.name)
 
-    mc = ModelCompiler()
-    model = mc.read_and_parse_archive(BytesIO(file_bytes))
-    ev = Evaluator(model)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
+        tmp_file.write(file_bytes)
+        tmp_path = tmp_file.name
+
     results = []
+    app = xw.App(visible=False)
+    try:
+        wb = app.books.open(tmp_path)
 
-    for csv_row in csv_rows:
-        for sh, col, r, key, forced in in_maps:
-            val = forced if forced is not None else csv_row.get(key, "")
-            print(val)
-            ev.set_cell_value(f"{sh}!{col}{r}", val)
+        for csv_row in csv_rows:
+            for sh, col, r, key, forced in in_maps:
+                val = forced if forced is not None else csv_row.get(key, "")
+                sheet = wb.sheets[sh]
+                sheet.range(f"{col}{r}").value = val
 
-        out_row = {}
-        for sh, col, r, field in out_maps:
-            formula_cell = f"{sh}!{col}{r}"
-            result = ev.evaluate(formula_cell)
-            print(f"Evaluating {formula_cell} -> {result}")
-            out_row[field] = result or 0
-        
-        print("Input mappings:", in_maps)
-        print("Output mappings:", out_maps)
-        print("ID mappings:", id_maps)
-        for row in csv_rows:
-            print("CSV row:", row)
+            out_row = {}
+            for sh, col, r, field in out_maps:
+                sheet = wb.sheets[sh]
+                result = sheet.range(f"{col}{r}").value
+                print(f"Evaluating {sh}!{col}{r} -> {result}")
+                out_row[field] = result or 0
 
+            identity_data = {key: csv_row.get(key, "") for key in id_maps}
+            combined_row = {**identity_data, **out_row}
+            results.append(combined_row)
+            
+            print("Input mappings:", in_maps)
+            print("Output mappings:", out_maps)
+            print("ID mappings:", id_maps)
 
-
-        identity_data = {key: csv_row.get(key, "") for key in id_maps}
-
-        combined_row = {**identity_data, **out_row}
-        results.append(combined_row)
+        wb.close()
+    finally:
+        app.quit()
 
     header = id_maps + [m.field for m in template.output_mappings]
 
