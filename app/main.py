@@ -70,14 +70,12 @@ def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
     return db_template
 
 
-
 @app.get("/templates/{template_id}", response_model=TemplateResponse)
 def get_template(template_id: int, db: Session = Depends(get_db)):
     db_template = db.query(Template).filter(Template.id == template_id).first()
     if db_template is None:
         raise HTTPException(status_code=404, detail="Template not found")
     return db_template
-
 
 
 @app.put("/templates/{template_id}", response_model=TemplateResponse)
@@ -153,7 +151,6 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 
     db.delete(db_tpl)
     db.commit()
-    return JSONResponse({"message": "Template was successfully deleted."})
 
 
 
@@ -192,8 +189,6 @@ async def download_csv(filename: str):
         media_type="text/csv",
         filename=f"{filename}.csv"
     )
-    
-    
 
 @app.post("/process_excel/")
 async def process_excel(
@@ -249,4 +244,5 @@ async def process_excel(
             "csv": f"/download/csv/{base_filename}"
         }
     })
-    
+
+
