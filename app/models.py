@@ -4,8 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from .settings import DATABASES
 
-DATABASE_URL= "postgresql://test_db_user:1234AAA@localhost:5432/Ex_batch"
-#DATABASE_URL = f"postgresql://{DATABASES['USER']}:{DATABASES['PASSWORD']}@{DATABASES['HOST']}:{DATABASES['PORT']}/{DATABASES['NAME']}"
+#DATABASE_URL= "postgresql://test_db_user:1234AAA@localhost:5432/Ex_batch"
+DATABASE_URL = f"postgresql://{DATABASES['USER']}:{DATABASES['PASSWORD']}@{DATABASES['HOST']}:{DATABASES['PORT']}/{DATABASES['NAME']}"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
