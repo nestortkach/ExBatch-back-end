@@ -40,14 +40,13 @@ def process_excel_file(
     for csv_row in csv_rows:
         for sh, col, r, key, forced in in_maps:
             val = forced if forced is not None else csv_row.get(key, "")
-            print(val)
             ev.set_cell_value(f"{sh}!{col}{r}", val)
 
         out_row = {}
         for sh, col, r, field in out_maps:
             formula_cell = f"{sh}!{col}{r}"
             result = ev.evaluate(formula_cell)
-            print(f"Evaluating {formula_cell} -> {result}")
+            #print(f"Evaluating {formula_cell} -> {result}")
             out_row[field] = result or 0
         
         # print("Input mappings:", in_maps)
