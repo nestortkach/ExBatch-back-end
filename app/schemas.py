@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
-from app.models import Template
+#from app.models import Template
 
 class InputMappingBase(BaseModel):
     name: str
@@ -41,7 +41,7 @@ class TemplateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
-def template_to_pydantic(db_template: Template) -> TemplateCreate:
+def template_to_pydantic(db_template: dict) -> TemplateCreate:
     return TemplateCreate(
         name=db_template["name"],
         description=db_template["description"],
@@ -51,18 +51,18 @@ def template_to_pydantic(db_template: Template) -> TemplateCreate:
                 source=im["source"],
                 cell=im["cell"],
                 forced_value=im["forced_value"]
-            ) for im in db_template["input_mappings"]
+            ) for im in db_template.get("input_mappings", [])
         ],
         output_mappings=[
             OutputMappingBase(
                 field=om["field"],
                 cell=om["cell"]
-            ) for om in db_template["output_mappings"]
+            ) for om in db_template.get("output_mappings", [])
         ],
         identity_mappings=[
             IdentityMappingBase(
                 name=idm["name"]
-            ) for idm in db_template["identity_mappings"]
+            ) for idm in db_template.get("identity_mappings", [])
         ]
     )
 

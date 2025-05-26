@@ -1,14 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
-from sqlalchemy.orm import Session, selectinload
-from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
+#from sqlalchemy.orm import Session, selectinload
+#from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
 from app.settings import STORAGE_DIR, JSON_STORAGE_DIR, CSV_STORAGE_DIR, TEMPLATES_STORAGE_DIR
 import os
-from json import dump as json_dump
-from json import load
+from json import load, dump
 from fastapi.encoders import jsonable_encoder
 from typing import Optional 
 from io import StringIO
@@ -22,8 +21,6 @@ origins = [
     "https://localhost:3000",
     "http://localhost:3000",
 ]
-
-Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,7 +50,7 @@ def save_template_2(template: TemplateCreate):
     template_data['id'] = next_id
     
     with open(template_path, "w", encoding="utf-8") as f:
-        json_dump(template_data, f, ensure_ascii=False, indent=4)
+        dump(template_data, f, ensure_ascii=False, indent=4)
     
     return template_data
 
@@ -88,46 +85,11 @@ def update_template(
     
     try:
         with open(template_path, "w", encoding="utf-8") as f:
-            json_dump(existing_template, f, ensure_ascii=False, indent=4)
+            dump(existing_template, f, ensure_ascii=False, indent=4)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update template: {e}")
     
     return TemplateResponse(**existing_template)
-
-# @app.patch("/templates/{template_id}", response_model=TemplateResponse)
-# def patch_template(
-#         template_id: int,
-#         payload: TemplatePatch,
-#         db: Session = Depends(get_db)):
-
-#     db_tpl: Template = db.get(Template, template_id)
-#     if not db_tpl:
-#         raise HTTPException(404, "Template not found")
-
-#     if payload.name is not None:
-#         db_tpl.name = payload.name
-#     if payload.description is not None:
-#         db_tpl.description = payload.description
-
-#     if payload.input_mappings is not None:
-#         db.query(InputMapping).filter(InputMapping.template_id == template_id).delete()
-#         for im in payload.input_mappings:
-#             db.add(InputMapping(**im.dict(by_alias=False), template_id=template_id))
-
-#     if payload.output_mappings is not None:
-#         db.query(OutputMapping).filter(OutputMapping.template_id == template_id).delete()
-#         for om in payload.output_mappings:
-#             db.add(OutputMapping(**om.dict(by_alias=False), template_id=template_id))
-
-#     if payload.identity_mappings is not None:
-#         db.query(IdentityMapping).filter(IdentityMapping.template_id == template_id).delete()
-#         for idm in payload.identity_mappings:
-#             db.add(IdentityMapping(**idm.dict(by_alias=False), template_id=template_id))
-
-#     db.commit()
-#     db.refresh(db_tpl)
-#     return db_tpl
-
 
 
 @app.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -157,7 +119,6 @@ def get_template():
     return templates
 
 
-
 @app.get("/download/json/{filename}")
 async def download_json(filename: str):
     file_path = os.path.join(JSON_STORAGE_DIR, f"{filename}.json")
@@ -180,6 +141,7 @@ async def download_csv(filename: str):
         media_type="text/csv",
         filename=f"{filename}.csv"
     )
+
 
 @app.post("/process_excel/")
 async def process_excel(
@@ -224,7 +186,7 @@ async def process_excel(
         f.write(csv_content)
 
     with open(json_path, "w", encoding="utf-8") as f:
-        json_dump(json_result, f, ensure_ascii=False)
+        dump(json_result, f, ensure_ascii=False)
     
     return JSONResponse(content={
         "json": json_result,
