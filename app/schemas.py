@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
-#from app.models import Template
 
 class InputMappingBase(BaseModel):
     name: str

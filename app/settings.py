@@ -15,13 +15,3 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 JSON_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 CSV_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-
-# load_dotenv(dotenv_path=ENV_PATH)
-
-# DATABASES = {
-#         'NAME': os.environ.get('POSTGRES_DB'),
-#         'USER': os.environ.get('POSTGRES_USER'),
-#         'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
-#         'HOST': os.environ.get('POSTGRES_HOST'),
-#         'PORT': os.environ.get('POSTGRES_PORT'),
-# }
