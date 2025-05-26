@@ -43,26 +43,26 @@ class TemplateResponse(BaseModel):
 
 def template_to_pydantic(db_template: Template) -> TemplateCreate:
     return TemplateCreate(
-        name=db_template.name,
-        description=db_template.description,
+        name=db_template["name"],
+        description=db_template["description"],
         input_mappings=[
             InputMappingBase(
-                name=im.name,
-                source=im.source,
-                cell=im.cell,
-                forced_value=im.forced_value
-            ) for im in db_template.input_mappings
+                name=im["name"],
+                source=im["source"],
+                cell=im["cell"],
+                forced_value=im["forced_value"]
+            ) for im in db_template["input_mappings"]
         ],
         output_mappings=[
             OutputMappingBase(
-                field=om.field,
-                cell=om.cell
-            ) for om in db_template.output_mappings
+                field=om["field"],
+                cell=om["cell"]
+            ) for om in db_template["output_mappings"]
         ],
         identity_mappings=[
             IdentityMappingBase(
-                name=idm.name
-            ) for idm in db_template.identity_mappings
+                name=idm["name"]
+            ) for idm in db_template["identity_mappings"]
         ]
     )
 

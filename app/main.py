@@ -5,9 +5,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
 from app.services.excel_processor import process_excel_file
-from app.settings import STORAGE_DIR
+from app.settings import STORAGE_DIR, JSON_STORAGE_DIR, CSV_STORAGE_DIR, TEMPLATES_STORAGE_DIR
 import os
 from json import dump as json_dump
+from json import load
+from fastapi.encoders import jsonable_encoder
 from typing import Optional 
 from io import StringIO
 import csv
@@ -31,145 +33,134 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.post("/templates", response_model=TemplateResponse)
-def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
-    db_template = Template(
-        name=template.name,
-        description=template.description
-    )
-    db.add(db_template)
-    db.commit()
-    db.refresh(db_template)
-
-    for input_mapping in template.input_mappings:
-        db_input_mapping = InputMapping(
-            name=input_mapping.name,
-            source=input_mapping.source,
-            cell=input_mapping.cell,
-            forced_value=input_mapping.forced_value,
-            template_id=db_template.id
-        )
-        db.add(db_input_mapping)
-
-    for output_mapping in template.output_mappings:
-        db_output_mapping = OutputMapping(
-            field=output_mapping.field,
-            cell=output_mapping.cell,
-            template_id=db_template.id
-        )
-        db.add(db_output_mapping)
-
-    for identity_mapping in template.identity_mappings:
-        db_identity_mapping= IdentityMapping(
-            name=identity_mapping.name,
-            template_id=db_template.id
-        )
-        db.add(db_identity_mapping)
-        
-    db.commit()
-    return db_template
+def save_template_2(template: TemplateCreate):
+    
+    existing_ids = []
+    for file in TEMPLATES_STORAGE_DIR.glob("template_*.json"):
+        try:
+            id_str = int(file.stem.split("_")[1])
+            existing_ids.append(id_str)
+        except (IndexError, ValueError):
+            continue
+    next_id = max(existing_ids, default=0) + 1
+    
+    template_name = f"template_{next_id}"
+    template_path = os.path.join(TEMPLATES_STORAGE_DIR, f"{template_name}.json")
+    
+    template_data = jsonable_encoder(template)
+    template_data['id'] = next_id
+    
+    with open(template_path, "w", encoding="utf-8") as f:
+        json_dump(template_data, f, ensure_ascii=False, indent=4)
+    
+    return template_data
 
 
 @app.get("/templates/{template_id}", response_model=TemplateResponse)
-def get_template(template_id: int, db: Session = Depends(get_db)):
-    db_template = db.query(Template).filter(Template.id == template_id).first()
-    if db_template is None:
+def get_template(template_id: int):
+    try:
+        with open(TEMPLATES_STORAGE_DIR / f"template_{template_id}.json", "r", encoding="utf-8") as f:
+            template = load(f)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Template not found")
-    return db_template
+    return template
 
 
 @app.put("/templates/{template_id}", response_model=TemplateResponse)
 def update_template(
         template_id: int,
-        payload: TemplateUpdate,
-        db: Session = Depends(get_db)):
-    db_tpl: Template = db.get(Template, template_id)
-    if not db_tpl:
-        raise HTTPException(404, "Template not found")
+        payload: TemplateUpdate):
+    
+    template_path = TEMPLATES_STORAGE_DIR / f"template_{template_id}.json"
+    if not template_path.exists():
+        raise HTTPException(status_code=404, detail="Template not found")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            existing_template = load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read existing template: {e}")
+    
+    updated_template = payload.model_dump(by_alias=True)
+    existing_template.update(updated_template)
+    existing_template["id"] = template_id
+    
+    try:
+        with open(template_path, "w", encoding="utf-8") as f:
+            json_dump(existing_template, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update template: {e}")
+    
+    return TemplateResponse(**existing_template)
 
-    db_tpl.name = payload.name
-    db_tpl.description = payload.description
+# @app.patch("/templates/{template_id}", response_model=TemplateResponse)
+# def patch_template(
+#         template_id: int,
+#         payload: TemplatePatch,
+#         db: Session = Depends(get_db)):
 
-    db.query(InputMapping).filter(InputMapping.template_id == template_id).delete()
-    db.query(OutputMapping).filter(OutputMapping.template_id == template_id).delete()
-    db.query(IdentityMapping).filter(IdentityMapping.template_id == template_id).delete()
+#     db_tpl: Template = db.get(Template, template_id)
+#     if not db_tpl:
+#         raise HTTPException(404, "Template not found")
 
-    for im in payload.input_mappings:
-        db.add(InputMapping(**im.dict(by_alias=False), template_id=template_id))
-    for om in payload.output_mappings:
-        db.add(OutputMapping(**om.dict(by_alias=False), template_id=template_id))
-    for idm in payload.identity_mappings:
-        db.add(IdentityMapping(**idm.dict(by_alias=False), template_id=template_id))
+#     if payload.name is not None:
+#         db_tpl.name = payload.name
+#     if payload.description is not None:
+#         db_tpl.description = payload.description
 
-    db.commit()
-    db.refresh(db_tpl)
-    return db_tpl
+#     if payload.input_mappings is not None:
+#         db.query(InputMapping).filter(InputMapping.template_id == template_id).delete()
+#         for im in payload.input_mappings:
+#             db.add(InputMapping(**im.dict(by_alias=False), template_id=template_id))
 
+#     if payload.output_mappings is not None:
+#         db.query(OutputMapping).filter(OutputMapping.template_id == template_id).delete()
+#         for om in payload.output_mappings:
+#             db.add(OutputMapping(**om.dict(by_alias=False), template_id=template_id))
 
+#     if payload.identity_mappings is not None:
+#         db.query(IdentityMapping).filter(IdentityMapping.template_id == template_id).delete()
+#         for idm in payload.identity_mappings:
+#             db.add(IdentityMapping(**idm.dict(by_alias=False), template_id=template_id))
 
-@app.patch("/templates/{template_id}", response_model=TemplateResponse)
-def patch_template(
-        template_id: int,
-        payload: TemplatePatch,
-        db: Session = Depends(get_db)):
-
-    db_tpl: Template = db.get(Template, template_id)
-    if not db_tpl:
-        raise HTTPException(404, "Template not found")
-
-    if payload.name is not None:
-        db_tpl.name = payload.name
-    if payload.description is not None:
-        db_tpl.description = payload.description
-
-    if payload.input_mappings is not None:
-        db.query(InputMapping).filter(InputMapping.template_id == template_id).delete()
-        for im in payload.input_mappings:
-            db.add(InputMapping(**im.dict(by_alias=False), template_id=template_id))
-
-    if payload.output_mappings is not None:
-        db.query(OutputMapping).filter(OutputMapping.template_id == template_id).delete()
-        for om in payload.output_mappings:
-            db.add(OutputMapping(**om.dict(by_alias=False), template_id=template_id))
-
-    if payload.identity_mappings is not None:
-        db.query(IdentityMapping).filter(IdentityMapping.template_id == template_id).delete()
-        for idm in payload.identity_mappings:
-            db.add(IdentityMapping(**idm.dict(by_alias=False), template_id=template_id))
-
-    db.commit()
-    db.refresh(db_tpl)
-    return db_tpl
+#     db.commit()
+#     db.refresh(db_tpl)
+#     return db_tpl
 
 
 
 @app.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_template(template_id: int, db: Session = Depends(get_db)):
-    db_tpl: Template = db.get(Template, template_id)
-    if not db_tpl:
+def delete_template(template_id: int):
+    template = TEMPLATES_STORAGE_DIR / f"template_{template_id}.json"
+    if os.path.exists(template):
+        os.remove(template)
+    else:
         raise HTTPException(404, "Template not found")
-
-    db.delete(db_tpl)
-    db.commit()
-
 
 
 @app.get("/templates_list")
-def get_template(db: Session = Depends(get_db)):
-    db_template = db.query(Template).options(
-        selectinload(Template.input_mappings),
-        selectinload(Template.output_mappings),
-        selectinload(Template.identity_mappings)
-        ).all()
-    if db_template is None:
-        raise HTTPException(status_code=404, detail="Template not found")
-    return db_template
+def get_template():
+    if not TEMPLATES_STORAGE_DIR.exists():
+        raise HTTPException(status_code=500, detail="Templates storage directory not found")
+    templates = []
+    for file in TEMPLATES_STORAGE_DIR.glob("template_*.json"):
+        try:
+            with open(file, "r", encoding="utf-8") as f:
+                data = load(f)
+                template = TemplateResponse(**data)
+                templates.append(template)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading template {file.name}: {e}")
+    if not templates:
+        raise HTTPException(status_code=404, detail="No template found")
+    return templates
 
 
 
 @app.get("/download/json/{filename}")
 async def download_json(filename: str):
-    file_path = os.path.join(STORAGE_DIR, f"{filename}.json")
+    file_path = os.path.join(JSON_STORAGE_DIR, f"{filename}.json")
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="JSON file not found")
     return FileResponse(
@@ -181,7 +172,7 @@ async def download_json(filename: str):
 
 @app.get("/download/csv/{filename}")
 async def download_csv(filename: str):
-    file_path = os.path.join(STORAGE_DIR, f"{filename}.csv")
+    file_path = os.path.join(CSV_STORAGE_DIR, f"{filename}.csv")
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="CSV file not found")
     return FileResponse(
@@ -194,12 +185,12 @@ async def download_csv(filename: str):
 async def process_excel(
         template_id: int,
         excel_file: UploadFile = File(...),
-        csv_file: UploadFile = File(None),
-        db: Session = Depends(get_db)
+        csv_file: UploadFile = File(None)
 ):
-    db_template = db.query(Template).filter(Template.id == template_id).first()
-
-    if not db_template:
+    try:
+        with open(TEMPLATES_STORAGE_DIR / f"template_{template_id}.json", "r", encoding="utf-8") as f:
+            db_template = load(f)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Template not found")
 
     template_pydantic = template_to_pydantic(db_template)
@@ -223,11 +214,10 @@ async def process_excel(
     reader = csv.DictReader(StringIO(csv_content))
     json_result = list(reader)
     
+    base_filename = f"result_{template_id}"
     
-    base_filename = f"{template_id}_result"
-    
-    csv_path = os.path.join(STORAGE_DIR, f"{base_filename}.csv")
-    json_path = os.path.join(STORAGE_DIR, f"{base_filename}.json")
+    csv_path = os.path.join(CSV_STORAGE_DIR, f"{base_filename}.csv")
+    json_path = os.path.join(JSON_STORAGE_DIR, f"{base_filename}.json")
     
     
     with open(csv_path, "w", newline='', encoding="utf-8") as f:
