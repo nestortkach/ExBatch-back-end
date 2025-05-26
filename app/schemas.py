@@ -38,7 +38,7 @@ class TemplateResponse(BaseModel):
     output_mappings: List[OutputMappingBase]
     identity_mappings: List[IdentityMappingBase]
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 def template_to_pydantic(db_template: Template) -> TemplateCreate:

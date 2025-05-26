@@ -82,7 +82,7 @@ def update_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read existing template: {e}")
     
-    updated_template = payload.model_dump(by_alias=True)
+    updated_template = payload.model_dump(by_alias=False)
     existing_template.update(updated_template)
     existing_template["id"] = template_id
     
