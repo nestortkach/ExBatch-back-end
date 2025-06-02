@@ -206,7 +206,8 @@ async def process_excel(
     )
     
     try:
-        result_filename = f"result_{excel_file.filename.split(".")[0]}_"
+        excel_filename = excel_file.filename.split(".")[0]
+        result_filename = f"result_{excel_filename}_"
         if csv_file:
             result_filename += csv_file.filename.split(".")[0]
         
