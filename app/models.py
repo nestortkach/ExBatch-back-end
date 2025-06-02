@@ -1,4 +1,3 @@
-import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
@@ -8,17 +7,9 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 Base = declarative_base()
 
-POSTGRES_DB = os.getenv("POSTGRES_DB")
-POSTGRES_USER = os.getenv("POSTGRES_USER")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT")
+DATABASE_URL = "sqlite:///./storage/database.db"
 
-
-#DATABASE_URL = "postgresql://test_db_user:1234AAA@localhost:5432/Ex_batch"
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
