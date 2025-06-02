@@ -106,7 +106,6 @@ def update_template(
     return db_tpl
 
 
-
 @app.patch("/templates/{template_id}", response_model=TemplateResponse)
 def patch_template(
         template_id: int,
@@ -142,7 +141,6 @@ def patch_template(
     return db_tpl
 
 
-
 @app.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_template(template_id: int, db: Session = Depends(get_db)):
     db_tpl: Template = db.get(Template, template_id)
@@ -151,7 +149,6 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 
     db.delete(db_tpl)
     db.commit()
-
 
 
 @app.get("/templates_list")
@@ -164,7 +161,6 @@ def get_template(db: Session = Depends(get_db)):
     if db_template is None:
         raise HTTPException(status_code=404, detail="Template not found")
     return db_template
-
 
 
 @app.get("/download/json/{filename}")
