@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session, selectinload
-from app.models import Template, InputMapping, OutputMapping, IdentityMapping, get_db, Base, engine
-from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, template_to_pydantic
+from app.models import Template, InputMapping, OutputMapping, IdentityMapping, ResultLogs, get_db, Base, engine
+from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, ResultLogsResponse, template_to_pydantic
 from app.services.excel_processor import process_excel_file
 from app.settings import STORAGE_DIR, JSON_STORAGE_DIR, CSV_STORAGE_DIR
 import os
@@ -11,7 +11,7 @@ from json import dump as json_dump
 from typing import Optional, List
 from io import StringIO
 import csv
-
+from datetime import datetime
 
 app = FastAPI()
 
@@ -175,6 +175,7 @@ async def download_json(filename: str):
         filename=f"{filename}.json"
     )
 
+
 @app.get("/download/csv/{filename}")
 async def download_csv(filename: str):
     file_path = os.path.join(CSV_STORAGE_DIR, f"{filename}.csv")
@@ -186,6 +187,7 @@ async def download_csv(filename: str):
         filename=f"{filename}.csv"
     )
 
+
 @app.post("/process_excel/")
 async def process_excel(
         template_id: int,
@@ -194,55 +196,115 @@ async def process_excel(
         db: Session = Depends(get_db)
 ):
     
-    result_filename = f"result_{excel_file.filename.split(".")[0]}_"
-    if csv_file:
-        result_filename += csv_file.filename.split(".")[0]
+    execution_log = ResultLogs(
+        template_id=template_id,
+        excel_filename=excel_file.filename,
+        csv_filename=csv_file.filename if csv_file else None,
+        datetime_started=datetime.now(),
+        datetime_ended=None,
+        duration_seconds=None
+    )
     
-    db_template = db.query(Template).filter(Template.id == template_id).first()
+    try:
+        result_filename = f"result_{excel_file.filename.split(".")[0]}_"
+        if csv_file:
+            result_filename += csv_file.filename.split(".")[0]
+        
+        db_template = db.query(Template).filter(Template.id == template_id).first()
 
-    if not db_template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        if not db_template:
+            raise HTTPException(status_code=404, detail="Template not found")
 
-    template_pydantic = template_to_pydantic(db_template)
+        template_pydantic = template_to_pydantic(db_template)
 
-    excel_data = await excel_file.read()
-    
-    if csv_file:
-        csv_bytes  = await csv_file.read()
-        csv_data = list(csv.DictReader(csv_bytes.decode('utf-8-sig').splitlines()))
-    else:
-        if all(im.forced_value is not None for im in template_pydantic.input_mappings):
-            csv_data = [{}]
+        excel_data = await excel_file.read()
+        
+        if csv_file:
+            csv_bytes  = await csv_file.read()
+            csv_data = list(csv.DictReader(csv_bytes.decode('utf-8-sig').splitlines()))
         else:
-            raise HTTPException(
-                status_code=400,
-                detail="CSV file is required unless all input are forced in the template."
-            )
-    
-    csv_content = process_excel_file(excel_data, template_pydantic, csv_data)
+            if all(im.forced_value is not None for im in template_pydantic.input_mappings):
+                csv_data = [{}]
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="CSV file is required unless all input are forced in the template."
+                )
+        
+        csv_content = process_excel_file(excel_data, template_pydantic, csv_data)
 
-    reader = csv.DictReader(StringIO(csv_content))
-    json_result = list(reader)
-    
-    result_filename += f"_template_{template_id}"
-    
-    csv_path = os.path.join(CSV_STORAGE_DIR, f"{result_filename}.csv")
-    json_path = os.path.join(JSON_STORAGE_DIR, f"{result_filename}.json")
-    
-    
-    with open(csv_path, "w", newline='', encoding="utf-8") as f:
-        f.write(csv_content)
+        reader = csv.DictReader(StringIO(csv_content))
+        json_result = list(reader)
+        
+        result_filename += f"_template_{template_id}"
+        
+        csv_path = os.path.join(CSV_STORAGE_DIR, f"{result_filename}.csv")
+        json_path = os.path.join(JSON_STORAGE_DIR, f"{result_filename}.json")
+        
+        
+        with open(csv_path, "w", newline='', encoding="utf-8") as f:
+            f.write(csv_content)
 
-    with open(json_path, "w", encoding="utf-8") as f:
-        json_dump(json_result, f, ensure_ascii=False)
-    
-    return JSONResponse(content={
-        "json": json_result,
-        "csv": csv_content,
-        "dowload_links":{
-            "json": f"/download/json/{result_filename}",
-            "csv": f"/download/csv/{result_filename}"
-        }
-    })
+        with open(json_path, "w", encoding="utf-8") as f:
+            json_dump(json_result, f, ensure_ascii=False)
+        
+        execution_log.datetime_ended = datetime.now()
+        time_diff = execution_log.datetime_ended - execution_log.datetime_started
+        execution_log.duration_seconds = int(time_diff.total_seconds()) 
+        execution_log.num_of_records = len(json_result)
+        execution_log.location_json = json_path
+        execution_log.location_csv = csv_path
+        db.add(execution_log)
+        db.commit()
+        db.refresh(execution_log)
+        
+        return JSONResponse(content={
+            "json": json_result,
+            "csv": csv_content,
+            "dowload_links":{
+                "json": f"/download/json/{result_filename}",
+                "csv": f"/download/csv/{result_filename}"
+            }
+        })
+    except Exception as e:
+        execution_log.datetime_ended = datetime.now()
+        time_diff = execution_log.datetime_ended - execution_log.datetime_started
+        execution_log.duration_seconds = int(time_diff.total_seconds()) 
+        db.add(execution_log)
+        db.commit()
+        db.refresh(execution_log)
+        raise e
 
 
+@app.get("/logs_list", response_model=List[ResultLogsResponse])
+def get_template(db: Session = Depends(get_db)):
+    db_logs = db.query(ResultLogs).all()
+    if not db_logs:
+        raise HTTPException(status_code=404, detail="Logs not found")
+    return db_logs
+
+
+@app.get("/logs_list", response_model=List[ResultLogsResponse])
+def get_template(db: Session = Depends(get_db)):
+    db_logs = db.query(ResultLogs).all()
+    if not db_logs:
+        raise HTTPException(status_code=404, detail="Logs not found")
+    return db_logs
+
+
+@app.get("/logs/{log_id}", response_model=ResultLogsResponse)
+def get_template(log_id: int,db: Session = Depends(get_db)):
+    db_log = db.query(ResultLogs).filter(ResultLogs.id == log_id).first()
+    if db_log is None:
+        raise HTTPException(status_code=404, detail="Log not found")
+    return db_log
+
+@app.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_template(log_id: int, db: Session = Depends(get_db)):
+    db_log: ResultLogs = db.get(ResultLogs, log_id)
+    if not db_log:
+        raise HTTPException(404, "Log not found")
+
+    db.delete(db_log)
+    db.commit()
+    return JSONResponse({"message": "Log successfully deleted!"})

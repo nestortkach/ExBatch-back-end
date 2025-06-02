@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from app.models import Template
+from datetime import datetime
 
 class InputMappingBase(BaseModel):
     name: str
@@ -64,6 +65,18 @@ class TemplatePatch(BaseModel):
 
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    
+class ResultLogsResponse(BaseModel):
+    id: int
+    datetime_started: datetime
+    datetime_ended: datetime
+    duration_seconds: int
+    template_id: int
+    excel_filename: str
+    csv_filename: Optional[str]
+    num_of_records: int
+    location_json: Optional[str]
+    location_csv: Optional[str]
     
     
 def template_to_pydantic(db_template: Template) -> TemplateCreate:
