@@ -206,10 +206,10 @@ async def process_excel(
     )
     
     try:
-        excel_filename = excel_file.filename.split(".")[0]
+        excel_filename = excel_file.filename.split('.')[0]
         result_filename = f"result_{excel_filename}_"
         if csv_file:
-            result_filename += csv_file.filename.split(".")[0]
+            result_filename += csv_file.filename.split('.')[0]
         
         db_template = db.query(Template).filter(Template.id == template_id).first()
 
