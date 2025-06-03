@@ -228,8 +228,9 @@ async def process_excel(
         template_id: int,
         excel_file: UploadFile = File(...),
         csv_file: UploadFile = File(None),
+        skip_rows: bool = True,
         db: Session = Depends(get_db)
-):
+):  
     
     execution_log = ResultLogs(
         template_id=template_id,
@@ -251,15 +252,15 @@ async def process_excel(
 
         excel_data = await excel_file.read() 
         csv_data = await _process_csv_input(csv_file, template_pydantic)
+        total_rows = len(csv_data)
         
         result_filename = _generate_result_filename(excel_file, csv_file, template_id)
-        
-        csv_content = process_excel_file(excel_data, template_pydantic, csv_data)
+        csv_content, processed_rows = process_excel_file(excel_data, template_pydantic, csv_data, skip_rows)
         json_result = list(csv.DictReader(StringIO(csv_content)))
         
         file_links = _save_results(result_filename, csv_content, json_result)
         
-        _finalize_execution_log(execution_log, len(json_result), file_links, db)
+        _finalize_execution_log(execution_log, total_rows, processed_rows, file_links, db)
         
         return JSONResponse(content={
             "json": json_result,
@@ -271,7 +272,7 @@ async def process_excel(
         })
     
     except Exception as e:
-        _finalize_execution_log(execution_log, 0, None, db)
+        _finalize_execution_log(execution_log, 0, 0, None, db)
         error_name = type(e).__name__
         raise HTTPException(
             status_code=400,
@@ -322,7 +323,8 @@ def _save_results(result_filename: str, csv_content: str, json_result: list) -> 
 
 def _finalize_execution_log(
     execution_log: ResultLogs, 
-    num_records: int, 
+    total_rows: int, 
+    processed_rows: int,
     file_links: dict,
     db: Session
 ):
@@ -330,7 +332,8 @@ def _finalize_execution_log(
     execution_log.datetime_ended = datetime.now()
     time_diff = execution_log.datetime_ended - execution_log.datetime_started
     execution_log.duration_seconds = int(time_diff.total_seconds()) 
-    execution_log.num_of_records = num_records
+    execution_log.num_of_records = total_rows
+    execution_log.processed_records = processed_rows
     if file_links:
         execution_log.download_link_csv = file_links["csv"]
         execution_log.download_link_json = file_links["json"]

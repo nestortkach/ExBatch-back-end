@@ -14,7 +14,8 @@ def _split(cell: str) -> tuple[str, int]:
 def process_excel_file(
     file_bytes: bytes,
     template: TemplateCreate,
-    csv_rows
+    csv_rows,
+    skip_rows
 ) -> str:
 
     in_maps, out_maps, id_maps = [], [], []
@@ -36,7 +37,7 @@ def process_excel_file(
     model = mc.read_and_parse_archive(BytesIO(file_bytes))
     ev = Evaluator(model)
     results = []
-
+    processed_rows = 0
     for row_index, csv_row in enumerate(csv_rows, 1):
         try: 
             for sh, col, r, key, forced in in_maps:
@@ -64,9 +65,12 @@ def process_excel_file(
 
             combined_row = {**identity_data, **out_row}
             results.append(combined_row)
-            
+            processed_rows += 1
         except (ValueError, TypeError) as e:
-            raise ValueError(f"Row {row_index} - {str(e)}")
+            if skip_rows:
+                continue  
+            else:   
+                raise ValueError(f"Row {row_index} - {str(e)}")
 
     header = id_maps + [m.field for m in template.output_mappings]
 
@@ -75,4 +79,4 @@ def process_excel_file(
     writer.writeheader()
     writer.writerows(results)
 
-    return sio.getvalue()
+    return sio.getvalue(), processed_rows

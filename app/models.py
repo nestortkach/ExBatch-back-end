@@ -69,6 +69,7 @@ class ResultLogs(Base):
     excel_filename = Column(String)
     csv_filename = Column(String, nullable=True)
     num_of_records = Column(Integer, default=0)
+    processed_records = Column(Integer, default=0)
     download_link_json = Column(String, nullable=True)
     download_link_csv = Column(String, nullable=True)
     

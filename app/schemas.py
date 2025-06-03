@@ -75,6 +75,7 @@ class ResultLogsResponse(BaseModel):
     excel_filename: str
     csv_filename: Optional[str]
     num_of_records: int
+    processed_records: int
     download_link_json: Optional[str]
     download_link_csv: Optional[str]
     
