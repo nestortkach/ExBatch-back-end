@@ -75,8 +75,8 @@ class ResultLogsResponse(BaseModel):
     excel_filename: str
     csv_filename: Optional[str]
     num_of_records: int
-    location_json: Optional[str]
-    location_csv: Optional[str]
+    download_link_json: Optional[str]
+    download_link_csv: Optional[str]
     
     
 def template_to_pydantic(db_template: Template) -> TemplateCreate:
