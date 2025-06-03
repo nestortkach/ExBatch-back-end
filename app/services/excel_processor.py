@@ -37,28 +37,36 @@ def process_excel_file(
     ev = Evaluator(model)
     results = []
 
-    for csv_row in csv_rows:
-        for sh, col, r, key, forced in in_maps:
-            val = forced if forced is not None else csv_row.get(key, "")
-            ev.set_cell_value(f"{sh}!{col}{r}", val)
+    for row_index, csv_row in enumerate(csv_rows, 1):
+        try: 
+            for sh, col, r, key, forced in in_maps:
+                val = forced if forced is not None else csv_row.get(key, "")
+                if val != "" and not forced:
+                    try:
+                        if isinstance(val, str) and val.replace('.', '').replace('-', '').isdigit():
+                            val = float(val)
+                    except (ValueError, TypeError):
+                        raise ValueError(f"Invalid value “{val}” in column “{key}”. ")
+                
+                ev.set_cell_value(f"{sh}!{col}{r}", val)
+                
+            out_row = {}
+            for sh, col, r, field in out_maps:
+                formula_cell = f"{sh}!{col}{r}"
+                try:
+                    result = ev.evaluate(formula_cell)
+                    out_row[field] = result or 0
+                    
+                except Exception as e:
+                    raise ValueError(f"Formula calculation error in cell {formula_cell}. {str(e)}")
 
-        out_row = {}
-        for sh, col, r, field in out_maps:
-            formula_cell = f"{sh}!{col}{r}"
-            result = ev.evaluate(formula_cell)
-            #print(f"Evaluating {formula_cell} -> {result}")
-            out_row[field] = result or 0
-        
-        # print("Input mappings:", in_maps)
-        # print("Output mappings:", out_maps)
-        # print("ID mappings:", id_maps)
-        # for row in csv_rows:
-        #     print("CSV row:", row)
+            identity_data = {key: csv_row.get(key, "") for key in id_maps}
 
-        identity_data = {key: csv_row.get(key, "") for key in id_maps}
-
-        combined_row = {**identity_data, **out_row}
-        results.append(combined_row)
+            combined_row = {**identity_data, **out_row}
+            results.append(combined_row)
+            
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Row {row_index} - {str(e)}")
 
     header = id_maps + [m.field for m in template.output_mappings]
 

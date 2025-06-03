@@ -269,21 +269,14 @@ async def process_excel(
                 "csv": f"/download/csv/{result_filename}"
             }
         })
-    # except Уч as e:
-    #     # Handle Excel calculation errors (formulas, cell references, etc.)
-    #     _finalize_execution_log(execution_log, 0, None, db)
-    #     raise HTTPException(
-    #         status_code=422, 
-    #         detail=f"Excel calculation error: {str(e)}. Please check your formulas and cell references."
-    #     )
     
     except Exception as e:
         _finalize_execution_log(execution_log, 0, None, db)
+        error_name = type(e).__name__
         raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error during Excel processing: {str(e)}"
+            status_code=400,
+            detail=f"Error during file processing: {str(e)}"
         )
-
 
 
 async def _process_csv_input(csv_file: UploadFile, template_pydantic) -> list:
