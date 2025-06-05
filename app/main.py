@@ -13,12 +13,25 @@ from io import StringIO
 import csv
 from datetime import datetime
 
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
 
+# # Mount the entire frontend directory as static files
+# app.mount("/assets", StaticFiles(directory="frontend/assets"), name="assets")
+# app.mount("/static", StaticFiles(directory="frontend"), name="frontend")
+
+# @app.get("/")
+# async def serve_frontend():
+#     return FileResponse("frontend/index.html")
+
+# Your existing CORS configuration
 origins = [
     "https://ex-batch-front-end-seven.vercel.app",
     "https://localhost:3000",
     "http://localhost:3000",
+    "http://localhost:8000",  # Add your FastAPI server
+    "http://127.0.0.1:8000",
 ]
 
 Base.metadata.create_all(bind=engine)
@@ -189,15 +202,7 @@ async def download_csv(filename: str):
 
 
 @app.get("/logs_list", response_model=List[ResultLogsResponse])
-def get_template(db: Session = Depends(get_db)):
-    db_logs = db.query(ResultLogs).all()
-    if not db_logs:
-        raise HTTPException(status_code=404, detail="Logs not found")
-    return db_logs
-
-
-@app.get("/logs_list", response_model=List[ResultLogsResponse])
-def get_template(db: Session = Depends(get_db)):
+def get_logs_list(db: Session = Depends(get_db)):
     db_logs = db.query(ResultLogs).all()
     if not db_logs:
         raise HTTPException(status_code=404, detail="Logs not found")
@@ -205,7 +210,7 @@ def get_template(db: Session = Depends(get_db)):
 
 
 @app.get("/logs/{log_id}", response_model=ResultLogsResponse)
-def get_template(log_id: int,db: Session = Depends(get_db)):
+def get_log(log_id: int,db: Session = Depends(get_db)):
     db_log = db.query(ResultLogs).filter(ResultLogs.id == log_id).first()
     if db_log is None:
         raise HTTPException(status_code=404, detail="Log not found")
@@ -213,7 +218,7 @@ def get_template(log_id: int,db: Session = Depends(get_db)):
 
 
 @app.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_template(log_id: int, db: Session = Depends(get_db)):
+def delete_log(log_id: int, db: Session = Depends(get_db)):
     db_log: ResultLogs = db.get(ResultLogs, log_id)
     if not db_log:
         raise HTTPException(404, "Log not found")
@@ -340,3 +345,5 @@ def _finalize_execution_log(
     db.add(execution_log)
     db.commit()
     db.refresh(execution_log)
+
+

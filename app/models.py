@@ -3,11 +3,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from .settings import load_dotenv, ENV_PATH
 from datetime import datetime
+import os
 load_dotenv(dotenv_path=ENV_PATH)
 
 Base = declarative_base()
 
-DATABASE_URL = "sqlite:///./storage/database.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./storage/database.db")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
