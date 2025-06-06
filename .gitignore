@@ -50,5 +50,3 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
-frontend/
-start_app.py
