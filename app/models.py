@@ -2,18 +2,31 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey,
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from .settings import load_dotenv, ENV_PATH
-from datetime import datetime
+
 import os
+import sys
+
+def get_database_path():
+    """Get database path that works with PyInstaller"""
+    if getattr(sys, 'frozen', False):
+        db_path = os.path.join(os.getcwd(), "storage", "database.db")
+    else:
+        db_path = os.path.join("storage", "database.db")
+
+    db_dir = os.path.dirname(db_path)
+    if db_dir: 
+        os.makedirs(db_dir, exist_ok=True)
+    
+    print(f"Database path: {db_path}")
+    return db_path
+
+
 load_dotenv(dotenv_path=ENV_PATH)
 
 Base = declarative_base()
-
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./storage/database.db")
-
+DATABASE_URL = f"sqlite:///{get_database_path()}"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 
 class Template(Base):
     __tablename__ = 'templates'
