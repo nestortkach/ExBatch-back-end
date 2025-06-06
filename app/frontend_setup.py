@@ -17,7 +17,7 @@ def get_resource_path(relative_path: str) -> str:
 def setup_static_files(app: FastAPI) -> None:
     """Mount static files if they exist"""
     frontend_path = get_resource_path("frontend")
-    assets_path = get_resource_path("frontend/assets")
+    assets_path = get_resource_path(os.path.join("frontend", "assets"))
     
     if os.path.exists(assets_path):
         app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
