@@ -61,6 +61,7 @@ def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
         db_input_mapping = InputMapping(
             name=input_mapping.name,
             source=input_mapping.source,
+            is_cell=input_mapping.is_cell,
             cell=input_mapping.cell,
             forced_value=input_mapping.forced_value,
             template_id=db_template.id
@@ -70,6 +71,7 @@ def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
     for output_mapping in template.output_mappings:
         db_output_mapping = OutputMapping(
             field=output_mapping.field,
+            is_cell=input_mapping.is_cell,
             cell=output_mapping.cell,
             template_id=db_template.id
         )
@@ -78,6 +80,7 @@ def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
     for identity_mapping in template.identity_mappings:
         db_identity_mapping= IdentityMapping(
             name=identity_mapping.name,
+            is_cell=input_mapping.is_cell,
             template_id=db_template.id
         )
         db.add(db_identity_mapping)
