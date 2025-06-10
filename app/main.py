@@ -47,6 +47,14 @@ async def serve_frontend():
     else:
         return {"message": "Frontend not found"}
 
+@app.post("/templates_from_excel", response_model=List[TemplateResponse])
+def get_templates_from_excel(excel_file: UploadFile):
+    excel_filename=excel_file.filename
+    if excel_filename is None:
+        raise HTTPException(status_code=404, detail="You didn't give me file")
+    return {"message": "File received successfully", "filename": excel_filename}
+
+
 @app.post("/templates", response_model=TemplateResponse)
 def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
     db_template = Template(
