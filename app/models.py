@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from .settings import load_dotenv, ENV_PATH
@@ -47,7 +47,6 @@ class InputMapping(Base):
     name = Column(String)
     source = Column(String)
     cell = Column(String)
-    is_cell = Column(Boolean)
     forced_value = Column(String, nullable=True)
     template_id = Column(Integer, ForeignKey('templates.id'))
 
@@ -59,7 +58,6 @@ class OutputMapping(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     field = Column(String)
-    is_cell = Column(Boolean)
     cell = Column(String)
     template_id = Column(Integer, ForeignKey('templates.id'))
 
@@ -69,7 +67,6 @@ class IdentityMapping(Base):
     __tablename__ = 'identity_mappings'
 
     id = Column(Integer, primary_key=True, index=True)
-    is_cell = Column(Boolean)
     name = Column(String)
     template_id = Column(Integer, ForeignKey('templates.id'))
 

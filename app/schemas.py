@@ -7,7 +7,6 @@ class InputMappingBase(BaseModel):
     name: str
     source: str
     cell: str
-    is_cell: bool
     forced_value: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -15,13 +14,11 @@ class InputMappingBase(BaseModel):
 class OutputMappingBase(BaseModel):
     field: str
     cell: str
-    is_cell: bool
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
     
 class IdentityMappingBase(BaseModel):
     name: str
-    is_cell: bool
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 

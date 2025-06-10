@@ -23,15 +23,15 @@ def process_excel_file(
     for im in template.input_mappings:
         sh, cell = im.cell.split("!")
         col, row = _split(cell)
-        in_maps.append((sh, col, row, im.name, im.forced_value, im.is_cell))
+        in_maps.append((sh, col, row, im.name, im.forced_value))
 
     for om in template.output_mappings:
         sh, cell = om.cell.split("!")
         col, row = _split(cell)
-        out_maps.append((sh, col, row, om.field, om.is_cell))
+        out_maps.append((sh, col, row, om.field))
 
     for idm in template.identity_mappings:
-        id_maps.append(idm.name, idm.is_cell)
+        id_maps.append(idm.name)
 
     mc = ModelCompiler()
     model = mc.read_and_parse_archive(BytesIO(file_bytes))
@@ -40,9 +40,7 @@ def process_excel_file(
     processed_rows = 0
     for row_index, csv_row in enumerate(csv_rows, 1):
         try: 
-            for sh, col, r, key, forced, is_cell in in_maps:
-                if is_cell:
-                    key = ev.get_cell_value(key)
+            for sh, col, r, key, forced in in_maps:
                 val = forced if forced is not None else csv_row.get(key, "")
                 if val != "" and not forced:
                     try:
@@ -54,20 +52,16 @@ def process_excel_file(
                 ev.set_cell_value(f"{sh}!{col}{r}", val)
                 
             out_row = {}
-            for sh, col, r, field, is_cell in out_maps:
+            for sh, col, r, field in out_maps:
                 formula_cell = f"{sh}!{col}{r}"
                 try:
                     result = ev.evaluate(formula_cell)
-                    if is_cell:
-                        key = ev.get_cell_value(key)
                     out_row[field] = result or 0
                     
                 except Exception as e:
                     raise ValueError(f"Formula calculation error in cell {formula_cell}. {str(e)}")
-            for key, is_cell in id_maps:
-                if is_cell:
-                    key = ev.get_cell_value(key)
-                identity_data = {key: csv_row.get(key, "") for key in id_maps}
+
+            identity_data = {key: csv_row.get(key, "") for key in id_maps}
 
             combined_row = {**identity_data, **out_row}
             results.append(combined_row)
