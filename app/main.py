@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
+from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status, Form
 from fastapi.middleware.cors import CORSMiddleware
+import json
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 from app.models import Template, InputMapping, OutputMapping, IdentityMapping, ResultLogs, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, ResultLogsResponse, template_to_pydantic
-from app.services.excel_processor import process_excel_file, extract_templates
+from app.services.excel_processor import process_excel_file
 from app.settings import STORAGE_DIR, JSON_STORAGE_DIR, CSV_STORAGE_DIR
 import os
 from io import BytesIO
@@ -48,19 +49,6 @@ async def serve_frontend():
     else:
         return {"message": "Frontend not found"}
 
-@app.post("/templates_from_excel", response_model=List[TemplateResponse])
-def get_templates_from_excel(excel_file: UploadFile = File(...)):
-
-    excel_filename=excel_file.filename
-
-    excel_content = excel_file.read()
-
-    templates = extract_templates(excel_content)
-
-    if excel_filename is None:
-        raise HTTPException(status_code=404, detail="You didn't give me file")
-    return {"message": "File received successfully", "filename": excel_filename}
-
 
 # @app.post("/templates", response_model=TemplateResponse)
 # def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
@@ -99,6 +87,20 @@ def get_templates_from_excel(excel_file: UploadFile = File(...)):
         
 #     db.commit()
 #     return db_template
+
+
+@app.post("/templates_from_excel", response_model=List[TemplateResponse])
+def get_templates_from_excel(excel_file: UploadFile = File(...)):
+
+    excel_filename=excel_file.filename
+
+    excel_content = excel_file.read()
+
+
+    if excel_filename is None:
+        raise HTTPException(status_code=404, detail="You didn't give me file")
+    return {"message": "File received successfully", "filename": excel_filename}
+
 
 
 @app.post("/templates")
@@ -294,15 +296,20 @@ def delete_template(log_id: int, db: Session = Depends(get_db)):
 
 @app.post("/process_excel/")
 async def process_excel(
-        template_id: int,
+        template_json: str = Form(...),
         excel_file: UploadFile = File(...),
         csv_file: UploadFile = File(None),
         skip_rows: bool = True,
         db: Session = Depends(get_db)
 ):  
+    try:
+        template_dict = json.loads(template_json)
+        template = TemplateCreate(**template_dict)
+    except Exception as e:
+        return {"error": f"Invalid template JSON: {str(e)}"}
     
     execution_log = ResultLogs(
-        template_id=template_id,
+        template_id=template.id,
         excel_filename=excel_file.filename,
         csv_filename=csv_file.filename if csv_file else None,
         datetime_started=datetime.now(),
@@ -311,20 +318,16 @@ async def process_excel(
     )
     
     try:
-        
-        db_template = db.query(Template).filter(Template.id == template_id).first()
-
-        if not db_template:
-            raise HTTPException(status_code=404, detail="Template not found")
-
-        template_pydantic = template_to_pydantic(db_template)
 
         excel_data = await excel_file.read() 
-        csv_data = await _process_csv_input(csv_file, template_pydantic)
+        csv_data = await _process_csv_input(csv_file, template)
+
         total_rows = len(csv_data)
         
-        result_filename = _generate_result_filename(excel_file, csv_file, template_id)
-        csv_content, processed_rows = process_excel_file(excel_data, template_pydantic, csv_data, skip_rows)
+        result_filename = _generate_result_filename(excel_file, csv_file, template.id)
+
+        csv_content, processed_rows = process_excel_file(excel_data, template, csv_data, skip_rows)
+
         json_result = list(csv.DictReader(StringIO(csv_content)))
         
         file_links = _save_results(result_filename, csv_content, json_result)

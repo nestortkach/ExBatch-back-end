@@ -4,32 +4,48 @@ from app.models import Template
 from datetime import datetime
 
 class InputMappingBase(BaseModel):
-    name: str
+    id: str
+    name: str = Field(alias="column")
     source: str
     cell: str
     forced_value: Optional[str] = None
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    class Config:
+        allow_population_by_field_name = True
+        extra = "ignore"
 
 class OutputMappingBase(BaseModel):
-    field: str
+    id: str
+    field: str = Field(alias="name")
     cell: str
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    class Config:
+        allow_population_by_field_name = True
+        extra = "ignore"
     
 class IdentityMappingBase(BaseModel):
+    id: str
     name: str
+    templateId: str
+    
+    class Config:
+        allow_population_by_field_name = True
+        extra = "ignore"
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
 
 class TemplateCreate(BaseModel):
+    id: str
     name: str
     description: Optional[str] = None
-    input_mappings: List[InputMappingBase]
-    output_mappings: List[OutputMappingBase]
-    identity_mappings: List[IdentityMappingBase]
+    input_mappings: List[InputMappingBase] = Field(alias="inputMappings")
+    output_mappings: List[OutputMappingBase] = Field(alias="outputMappings")
+    identity_mappings: List[IdentityMappingBase] = Field(alias="identityMappings")
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    class Config:
+        allow_population_by_field_name = True
+        extra = "ignore"
 
 class TemplateResponse(BaseModel):
     id: int
