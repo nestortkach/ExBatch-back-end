@@ -1,13 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 from app.models import Template, InputMapping, OutputMapping, IdentityMapping, ResultLogs, get_db, Base, engine
 from app.schemas import TemplateCreate, TemplateResponse, TemplateUpdate, TemplatePatch, ResultLogsResponse, template_to_pydantic
-from app.services.excel_processor import process_excel_file
+from app.services.excel_processor import process_excel_file, extract_templates
 from app.settings import STORAGE_DIR, JSON_STORAGE_DIR, CSV_STORAGE_DIR
 import os
-import sys
+from io import BytesIO
+import xml.etree.ElementTree as ET
 from json import dump as json_dump
 from typing import Optional, List
 from io import StringIO
@@ -48,54 +49,95 @@ async def serve_frontend():
         return {"message": "Frontend not found"}
 
 @app.post("/templates_from_excel", response_model=List[TemplateResponse])
-def get_templates_from_excel(excel_file: UploadFile):
+def get_templates_from_excel(excel_file: UploadFile = File(...)):
+
     excel_filename=excel_file.filename
+
+    excel_content = excel_file.read()
+
+    templates = extract_templates(excel_content)
+
     if excel_filename is None:
         raise HTTPException(status_code=404, detail="You didn't give me file")
     return {"message": "File received successfully", "filename": excel_filename}
 
 
-@app.post("/templates", response_model=TemplateResponse)
-def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
-    db_template = Template(
-        name=template.name,
-        description=template.description
-    )
-    db.add(db_template)
-    db.commit()
-    db.refresh(db_template)
+# @app.post("/templates", response_model=TemplateResponse)
+# def save_template(template: TemplateCreate, db: Session = Depends(get_db)):
+#     db_template = Template(
+#         name=template.name,
+#         description=template.description
+#     )
+#     db.add(db_template)
+#     db.commit()
+#     db.refresh(db_template)
 
-    for input_mapping in template.input_mappings:
-        db_input_mapping = InputMapping(
-            name=input_mapping.name,
-            source=input_mapping.source,
-            is_cell=input_mapping.is_cell,
-            cell=input_mapping.cell,
-            forced_value=input_mapping.forced_value,
-            template_id=db_template.id
-        )
-        db.add(db_input_mapping)
+#     for input_mapping in template.input_mappings:
+#         db_input_mapping = InputMapping(
+#             name=input_mapping.name,
+#             source=input_mapping.source,
+#             cell=input_mapping.cell,
+#             forced_value=input_mapping.forced_value,
+#             template_id=db_template.id
+#         )
+#         db.add(db_input_mapping)
 
-    for output_mapping in template.output_mappings:
-        db_output_mapping = OutputMapping(
-            field=output_mapping.field,
-            is_cell=input_mapping.is_cell,
-            cell=output_mapping.cell,
-            template_id=db_template.id
-        )
-        db.add(db_output_mapping)
+#     for output_mapping in template.output_mappings:
+#         db_output_mapping = OutputMapping(
+#             field=output_mapping.field,
+#             cell=output_mapping.cell,
+#             template_id=db_template.id
+#         )
+#         db.add(db_output_mapping)
 
-    for identity_mapping in template.identity_mappings:
-        db_identity_mapping= IdentityMapping(
-            name=identity_mapping.name,
-            is_cell=input_mapping.is_cell,
-            template_id=db_template.id
-        )
-        db.add(db_identity_mapping)
+#     for identity_mapping in template.identity_mappings:
+#         db_identity_mapping= IdentityMapping(
+#             name=identity_mapping.name,
+#             template_id=db_template.id
+#         )
+#         db.add(db_identity_mapping)
         
-    db.commit()
-    return db_template
+#     db.commit()
+#     return db_template
 
+
+@app.post("/templates")
+def save_template(template: TemplateCreate):
+
+    root = ET.Element("Template", name=template.name, description=template.description or "")
+    input_mappings_elem = ET.SubElement(root, "InputMappings")
+
+    for im in template.input_mappings:
+        ET.SubElement(input_mappings_elem, "InputMapping", {
+            "name": im.name,
+            "source": im.source,
+            "cell": im.cell,
+            "forced_value": im.forced_value or ""
+        })
+
+    output_mappings_elem = ET.SubElement(root, "OutputMappings")
+    for om in template.output_mappings:
+        ET.SubElement(output_mappings_elem, "OutputMapping", {
+            "field": om.field,
+            "cell": om.cell
+        })
+
+    identity_mappings_elem = ET.SubElement(root, "IdentityMappings")
+    for idm in template.identity_mappings:
+        ET.SubElement(identity_mappings_elem, "IdentityMapping", {
+            "name": idm.name
+        })
+    tree = ET.ElementTree(root)
+    xml_bytes = BytesIO()
+    tree.write(xml_bytes, encoding="utf-8", xml_declaration=True)
+    xml_bytes.seek(0)
+
+
+    return StreamingResponse(
+        xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=template.xml"}
+    )
 
 @app.get("/templates/{template_id}", response_model=TemplateResponse)
 def get_template(template_id: int, db: Session = Depends(get_db)):
