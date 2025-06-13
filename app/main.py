@@ -326,20 +326,32 @@ async def process_excel(
         
         result_filename = _generate_result_filename(excel_file, csv_file, template.id)
 
-        csv_content, processed_rows = process_excel_file(excel_data, template, csv_data, skip_rows)
+        csv_content, csv_error, processed_rows = process_excel_file(excel_data, template, csv_data, skip_rows)
 
         json_result = list(csv.DictReader(StringIO(csv_content)))
+
+        json_error = list(csv.DictReader(StringIO(csv_error)))
         
-        file_links = _save_results(result_filename, csv_content, json_result)
+        if csv_error:
+            error_filename = _generate_result_filename(excel_file, csv_file, template.id)
+
+        result_file_links = _save_results(result_filename, csv_content, json_result)
+        error_file_links = _save_results(error_filename, csv_error, json_error)
         
-        _finalize_execution_log(execution_log, total_rows, processed_rows, file_links, db)
+        _finalize_execution_log(execution_log, total_rows, processed_rows, result_file_links, db)
+        _finalize_execution_log(execution_log, total_rows, processed_rows, error_file_links, db)
         
         return JSONResponse(content={
             "json": json_result,
             "csv": csv_content,
+            "csv_error": csv_error,
+            "json_error": json_error,
             "dowload_links":{
                 "json": f"/download/json/{result_filename}",
-                "csv": f"/download/csv/{result_filename}"
+                "csv": f"/download/csv/{result_filename}",
+                "json_error": f"/download/json/{error_filename}",
+                "csv_error": f"/download/csv/{error_filename}",
+
             }
         })
     
