@@ -19,7 +19,6 @@ def process_excel_file(
 ) -> str:
 
     in_maps, out_maps, id_maps = [], [], []
-    error_rows = []
 
     for im in template.input_mappings:
         sh, cell = im.cell.split("!")
@@ -69,12 +68,10 @@ def process_excel_file(
             processed_rows += 1
         except (ValueError, TypeError) as e:
             if skip_rows:
-                csv_row['id'] = row_index
-                error_rows.append(csv_row)
                 continue  
             else:   
                 raise ValueError(f"Row {row_index} - {str(e)}")
-            
+
     header = id_maps + [m.field for m in template.output_mappings]
 
     sio = io.StringIO()
@@ -82,11 +79,4 @@ def process_excel_file(
     writer.writeheader()
     writer.writerows(results)
 
-    header1 = list(error_rows[0].keys())
-
-    sio_error = io.StringIO()
-    writer1 = csv.DictWriter(sio_error, fieldnames=header1)
-    writer1.writeheader()
-    writer1.writerows(error_rows)
-
-    return sio.getvalue(), sio_error.getvalue(), processed_rows
+    return sio.getvalue(), processed_rows
