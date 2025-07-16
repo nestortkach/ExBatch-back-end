@@ -424,5 +424,3 @@ def _finalize_execution_log(
     db.add(execution_log)
     db.commit()
     db.refresh(execution_log)
-
-
