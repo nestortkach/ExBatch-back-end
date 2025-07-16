@@ -82,7 +82,7 @@ def process_excel_file(
     writer.writeheader()
     writer.writerows(results)
 
-    header1 = list(error_rows[0].keys())
+    header1 = [] if not error_rows else list(error_rows[0].keys())
 
     sio_error = io.StringIO()
     writer1 = csv.DictWriter(sio_error, fieldnames=header1)
